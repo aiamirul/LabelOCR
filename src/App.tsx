@@ -48,6 +48,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { cn } from "@/lib/utils";
 import JSZip from 'jszip';
 import Tesseract from 'tesseract.js';
+import { DEMO_DATA } from './constants';
 import { 
   BarChart, 
   Bar, 
@@ -119,6 +120,7 @@ export default function App() {
 
   const [isAiMode, setIsAiMode] = useState(false);
   const [isOcrLoading, setIsOcrLoading] = useState(false);
+  const [isRecollecting, setIsRecollecting] = useState(false);
   const [zoom, setZoom] = useState(1);
   const [imageUrl, setImageUrl] = useState<string>("");
   const [activeImageUrl, setActiveImageUrl] = useState<string | null>(null);
@@ -143,56 +145,87 @@ export default function App() {
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
 
-  // Default demo data loading
-  useEffect(() => {
-    const demoData = {
-      "version": "2.0",
-      "videoUrl": "https://i.imgur.com/YElCfgj.mp4",
-      "videoWorkflowMode": "labeling",
-      "videoTasks": [
-        {
-          "id": "faaa3fd2-be90-43ed-88df-a497a9ed0a94",
-          "timestamp": 1.066,
-          "thumbnail": "https://i.imgur.com/vH97Z9P.jpg",
-          "labels": [
-            { "id": "7c01005b", "x": 9.098, "y": 79.442, "width": 8.887, "height": 5.161, "text": "PORT" },
-            { "id": "9b53d63f", "x": 18.721, "y": 79.348, "width": 18.353, "height": 5.443, "text": "AUTHORITY" },
-            { "id": "e44b7fb4", "x": 37.968, "y": 79.817, "width": 6.626, "height": 4.598, "text": "BUS" },
-            { "id": "dff56c60", "x": 45.278, "y": 79.536, "width": 16.144, "height": 4.879, "text": "TERMINAL" },
-            { "id": "7634dfaa", "x": 9.729, "y": 72.780, "width": 19.720, "height": 5.630, "text": "BREAKING" },
-            { "id": "d906712c", "x": 30.395, "y": 73.061, "width": 11.359, "height": 5.067, "text": "NEWS" },
-            { "id": "bc81c62b", "x": 9.518, "y": 85.260, "width": 12.936, "height": 4.973, "text": "CLOSED" },
-            { "id": "859fc5d6", "x": 23.454, "y": 85.260, "width": 15.250, "height": 5.161, "text": "BECAUSE" },
-            { "id": "67e87bcd", "x": 39.440, "y": 85.260, "width": 4.628, "height": 4.973, "text": "OF" },
-            { "id": "b9199940", "x": 44.910, "y": 85.260, "width": 15.881, "height": 5.255, "text": "ACCIDENT" },
-            { "id": "41c0c8a4", "x": 61.737, "y": 85.541, "width": 3.629, "height": 4.786, "text": "IN" },
-            { "id": "20b182c9", "x": 66.313, "y": 85.354, "width": 3.629, "height": 4.598, "text": "NJ" },
-            { "id": "a492d613", "x": 76.620, "y": 79.817, "width": 5.259, "height": 4.223, "text": "4:07" },
-            { "id": "04b40ead", "x": 76.252, "y": 85.166, "width": 4.417, "height": 4.316, "text": "84°" },
-            { "id": "4dc1a072", "x": 76.672, "y": 91.547, "width": 9.203, "height": 3.190, "text": "EYEWITNESS" },
-            { "id": "40d336ca", "x": 85.928, "y": 91.265, "width": 4.575, "height": 3.660, "text": "NEWS" },
-            { "id": "823e4ef6", "x": 9.203, "y": 7.319, "width": 10.623, "height": 7.507, "text": "LIVE" },
-            { "id": "dd8f5824", "x": 81.458, "y": 83.102, "width": 3.891, "height": 3.660, "text": "abc" },
-            { "id": "2c02e04f", "x": 84.666, "y": 81.413, "width": 5.469, "height": 8.258, "text": "7" }
-          ]
-        }
-      ],
-      "activeTaskId": "faaa3fd2-be90-43ed-88df-a497a9ed0a94",
-      "activeImageUrl": "https://i.imgur.com/vH97Z9P.jpg",
-      "image_size": { "width": 960, "height": 538 }
-    };
+  const loadDemoProject = () => {
+    setVideoUrl(DEMO_DATA.videoUrl);
+    setVideoWorkflowMode('selection');
+    setVideoTasks(DEMO_DATA.videoTasks as any);
+    setActiveTaskId(null);
+    setIsRecollecting(true);
+    setLabels([]);
+    setActiveImageUrl(null);
+  };
 
-    const hasStored = localStorage.getItem('ocr_labels');
-    if (!hasStored) {
-      setVideoWorkflowMode(demoData.videoWorkflowMode as any);
-      setVideoTasks(demoData.videoTasks as any);
-      setActiveTaskId(demoData.activeTaskId);
-      setActiveImageUrl(demoData.activeImageUrl);
-      setLabels(demoData.videoTasks[0].labels as any);
-      setImageUrl(demoData.videoUrl);
-      setImageSize(demoData.image_size);
-    }
-  }, []);
+  // Automated frame recollection for demo project
+  useEffect(() => {
+    if (!isRecollecting || !videoUrl) return;
+
+    const recover = async () => {
+      // Poll for videoRef.current if it's not ready (component mounting)
+      let video = videoRef.current;
+      let attempts = 0;
+      while (!video && attempts < 20) {
+        await new Promise(r => setTimeout(r, 100));
+        video = videoRef.current;
+        attempts++;
+      }
+
+      if (!video) {
+        console.error("Video element not found after polling");
+        setIsRecollecting(false);
+        return;
+      }
+        
+      // Wait for metadata
+      if (video.readyState < 1) {
+        await new Promise(resolve => {
+          if (video) video.onloadedmetadata = resolve;
+        });
+      }
+
+      const updatedTasks = [...videoTasks];
+      for (let i = 0; i < updatedTasks.length; i++) {
+        const task = updatedTasks[i];
+        video.currentTime = task.timestamp;
+        
+        await new Promise(resolve => {
+          const onSeeked = () => {
+            if (video) video.removeEventListener('seeked', onSeeked);
+            // Small delay to ensure frame is rendered
+            setTimeout(resolve, 100);
+          };
+          video.addEventListener('seeked', onSeeked);
+        });
+
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          task.thumbnail = canvas.toDataURL('image/jpeg', 0.8);
+        }
+      }
+
+      setVideoTasks(updatedTasks);
+      setIsRecollecting(false);
+      setVideoWorkflowMode('labeling');
+      
+      const demoActiveTaskId = DEMO_DATA.activeTaskId;
+      const activeTask = updatedTasks.find(t => t.id === demoActiveTaskId) || updatedTasks[0];
+      
+      if (activeTask) {
+        setActiveTaskId(activeTask.id);
+        setActiveImageUrl(activeTask.thumbnail);
+        setLabels(activeTask.labels);
+        setImageSize(DEMO_DATA.image_size);
+      }
+    };
+    
+    recover().catch(err => {
+      console.error("Failed to recollect demo frames", err);
+      setIsRecollecting(false);
+    });
+  }, [isRecollecting, videoUrl]);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
@@ -1074,10 +1107,18 @@ export default function App() {
                           <Button 
                             variant="outline"
                             onClick={() => fileInputRef.current?.click()}
-                            className="w-full border-accent text-accent hover:bg-accent/5 font-bold h-9 rounded-md flex items-center justify-center gap-2 text-[11px]"
+                            className="w-full border-border text-text-main hover:bg-muted font-bold h-9 rounded-md flex items-center justify-center gap-2 text-[11px]"
                           >
                             <Upload className="w-3.5 h-3.5" />
                             Import JSON
+                          </Button>
+                          <Button 
+                            variant="outline"
+                            onClick={loadDemoProject}
+                            className="w-full border-blue-500/30 text-blue-500 hover:bg-blue-500/5 font-bold h-9 rounded-md flex items-center justify-center gap-2 text-[11px]"
+                          >
+                            <Zap className="w-3.5 h-3.5" />
+                            Load Demo Project
                           </Button>
                           <Button 
                             className="w-full bg-accent hover:bg-accent/90 text-accent-foreground font-bold h-9 rounded-md text-[11px]"
@@ -1359,6 +1400,17 @@ export default function App() {
                       className="w-full h-full"
                       crossOrigin="anonymous"
                     />
+                    {isRecollecting && (
+                      <div className="absolute inset-0 bg-background/80 flex flex-col items-center justify-center gap-4 z-50">
+                        <Loader2 className="w-12 h-12 text-accent animate-spin" />
+                        <div className="text-xl font-bold text-text-main animate-pulse">
+                          Recollecting frames from URL...
+                        </div>
+                        <p className="text-sm text-text-muted">
+                          Seeking precise timestamps for the demo project
+                        </p>
+                      </div>
+                    )}
                     <div className="absolute top-6 right-6 opacity-0 group-hover:opacity-100 transition-opacity">
                        <Button 
                         onClick={captureFrame}
