@@ -1,0 +1,6 @@
+{
+  "name": "OCR Labeler - Advanced",
+  "description": "A professional OCR labeling tool with real-time character analysis, dataset statistics, and high-fidelity full-page previews. Supports EasyOCR and JSON export formats.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
