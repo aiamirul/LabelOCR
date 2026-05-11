@@ -143,6 +143,57 @@ export default function App() {
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
 
+  // Default demo data loading
+  useEffect(() => {
+    const demoData = {
+      "version": "2.0",
+      "videoUrl": "https://i.imgur.com/YElCfgj.mp4",
+      "videoWorkflowMode": "labeling",
+      "videoTasks": [
+        {
+          "id": "faaa3fd2-be90-43ed-88df-a497a9ed0a94",
+          "timestamp": 1.066,
+          "thumbnail": "https://i.imgur.com/vH97Z9P.jpg",
+          "labels": [
+            { "id": "7c01005b", "x": 9.098, "y": 79.442, "width": 8.887, "height": 5.161, "text": "PORT" },
+            { "id": "9b53d63f", "x": 18.721, "y": 79.348, "width": 18.353, "height": 5.443, "text": "AUTHORITY" },
+            { "id": "e44b7fb4", "x": 37.968, "y": 79.817, "width": 6.626, "height": 4.598, "text": "BUS" },
+            { "id": "dff56c60", "x": 45.278, "y": 79.536, "width": 16.144, "height": 4.879, "text": "TERMINAL" },
+            { "id": "7634dfaa", "x": 9.729, "y": 72.780, "width": 19.720, "height": 5.630, "text": "BREAKING" },
+            { "id": "d906712c", "x": 30.395, "y": 73.061, "width": 11.359, "height": 5.067, "text": "NEWS" },
+            { "id": "bc81c62b", "x": 9.518, "y": 85.260, "width": 12.936, "height": 4.973, "text": "CLOSED" },
+            { "id": "859fc5d6", "x": 23.454, "y": 85.260, "width": 15.250, "height": 5.161, "text": "BECAUSE" },
+            { "id": "67e87bcd", "x": 39.440, "y": 85.260, "width": 4.628, "height": 4.973, "text": "OF" },
+            { "id": "b9199940", "x": 44.910, "y": 85.260, "width": 15.881, "height": 5.255, "text": "ACCIDENT" },
+            { "id": "41c0c8a4", "x": 61.737, "y": 85.541, "width": 3.629, "height": 4.786, "text": "IN" },
+            { "id": "20b182c9", "x": 66.313, "y": 85.354, "width": 3.629, "height": 4.598, "text": "NJ" },
+            { "id": "a492d613", "x": 76.620, "y": 79.817, "width": 5.259, "height": 4.223, "text": "4:07" },
+            { "id": "04b40ead", "x": 76.252, "y": 85.166, "width": 4.417, "height": 4.316, "text": "84°" },
+            { "id": "4dc1a072", "x": 76.672, "y": 91.547, "width": 9.203, "height": 3.190, "text": "EYEWITNESS" },
+            { "id": "40d336ca", "x": 85.928, "y": 91.265, "width": 4.575, "height": 3.660, "text": "NEWS" },
+            { "id": "823e4ef6", "x": 9.203, "y": 7.319, "width": 10.623, "height": 7.507, "text": "LIVE" },
+            { "id": "dd8f5824", "x": 81.458, "y": 83.102, "width": 3.891, "height": 3.660, "text": "abc" },
+            { "id": "2c02e04f", "x": 84.666, "y": 81.413, "width": 5.469, "height": 8.258, "text": "7" }
+          ]
+        }
+      ],
+      "activeTaskId": "faaa3fd2-be90-43ed-88df-a497a9ed0a94",
+      "activeImageUrl": "https://i.imgur.com/vH97Z9P.jpg",
+      "image_size": { "width": 960, "height": 538 }
+    };
+
+    const hasStored = localStorage.getItem('ocr_labels');
+    if (!hasStored) {
+      setVideoWorkflowMode(demoData.videoWorkflowMode as any);
+      setVideoTasks(demoData.videoTasks as any);
+      setActiveTaskId(demoData.activeTaskId);
+      setActiveImageUrl(demoData.activeImageUrl);
+      setLabels(demoData.videoTasks[0].labels as any);
+      setImageUrl(demoData.videoUrl);
+      setImageSize(demoData.image_size);
+    }
+  }, []);
+
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
