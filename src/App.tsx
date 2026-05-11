@@ -137,7 +137,7 @@ export default function App() {
   
   // Video related state
   type VideoWorkflowMode = 'selection' | 'labeling';
-  const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [videoUrl, setVideoUrl] = useState<string | null>("https://i.imgur.com/YElCfgj.mp4");
   const [videoWorkflowMode, setVideoWorkflowMode] = useState<VideoWorkflowMode>('selection');
   const [videoTasks, setVideoTasks] = useState<VideoTask[]>([]);
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
