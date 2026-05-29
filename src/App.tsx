@@ -88,10 +88,10 @@ interface VideoTask {
   labels: Label[];
 }
 
-type ViewMode = 'editor' | 'stats' | 'export';
+type ViewMode = 'selection' | 'labeling' | 'stats' | 'export';
 
 export default function App() {
-  const [viewMode, setViewMode] = useState<ViewMode>('editor');
+  const [viewMode, setViewMode] = useState<ViewMode>('selection');
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isExportingZip, setIsExportingZip] = useState(false);
@@ -138,16 +138,14 @@ export default function App() {
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
   
   // Video related state
-  type VideoWorkflowMode = 'selection' | 'labeling';
   const [videoUrl, setVideoUrl] = useState<string | null>("https://i.imgur.com/YElCfgj.mp4");
-  const [videoWorkflowMode, setVideoWorkflowMode] = useState<VideoWorkflowMode>('selection');
   const [videoTasks, setVideoTasks] = useState<VideoTask[]>([]);
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   const loadDemoProject = () => {
     setVideoUrl(DEMO_DATA.videoUrl);
-    setVideoWorkflowMode('selection');
+    setViewMode('selection');
     setVideoTasks(DEMO_DATA.videoTasks as any);
     setActiveTaskId(null);
     setIsRecollecting(true);
@@ -208,7 +206,7 @@ export default function App() {
 
       setVideoTasks(updatedTasks);
       setIsRecollecting(false);
-      setVideoWorkflowMode('labeling');
+      setViewMode('labeling');
       
       const demoActiveTaskId = DEMO_DATA.activeTaskId;
       const activeTask = updatedTasks.find(t => t.id === demoActiveTaskId) || updatedTasks[0];
@@ -399,7 +397,7 @@ export default function App() {
         if (data.videoUrl !== undefined) {
           // New format with video support
           setVideoUrl(data.videoUrl);
-          setVideoWorkflowMode(data.videoWorkflowMode || 'selection');
+          setViewMode(data.videoWorkflowMode === 'labeling' ? 'labeling' : 'selection');
           setVideoTasks(data.videoTasks || []);
           setActiveTaskId(data.activeTaskId || null);
           setActiveImageUrl(data.activeImageUrl || null);
@@ -855,7 +853,7 @@ export default function App() {
     const data = {
       version: "2.0",
       videoUrl,
-      videoWorkflowMode,
+      viewMode,
       videoTasks,
       activeTaskId,
       activeImageUrl,
@@ -899,7 +897,7 @@ export default function App() {
       const isVideo = /\.(mp4|webm|ogg|mov)(\?.*)?$/i.test(imageUrl);
       if (isVideo) {
         setVideoUrl(imageUrl);
-        setVideoWorkflowMode('selection');
+        setViewMode('selection');
         setActiveImageUrl(null);
         setVideoTasks([]);
         setActiveTaskId(null);
@@ -908,159 +906,229 @@ export default function App() {
         setActiveImageUrl(imageUrl);
         setVideoTasks([]);
         setActiveTaskId(null);
+        setViewMode('labeling');
       }
       setLabels([]);
     }
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col font-sans text-text-main">
-      {/* Header */}
-      <header className="h-16 border-b border-border bg-card flex items-center justify-between px-6 sticky top-0 z-50">
-        <div className="flex items-center gap-6">
-          <div className="text-accent font-extrabold text-xl flex items-center gap-2">
-            <span className="text-2xl">◈</span>
-            <h1 className="tracking-tight">OCR Annotator</h1>
+    <div className="flex flex-col h-screen overflow-hidden text-sm bg-background font-sans text-text-main">
+      {/* Top Navigation Bar */}
+      <header className="h-14 border-b border-border bg-card flex items-center justify-between px-6 flex-shrink-0 z-50">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 mr-6">
+            <div className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center">
+              <Layout className="w-5 h-5 text-accent-foreground" />
+            </div>
+            <h1 className="font-black text-lg tracking-tight text-text-main">
+              labelOCR
+            </h1>
           </div>
-          
-          <nav className="flex items-center gap-1 bg-muted p-1 rounded-lg">
-            <button 
-              onClick={() => setViewMode('editor')}
-              className={cn(
-                "flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-md transition-all",
-                viewMode === 'editor' ? "bg-card text-accent shadow-sm" : "text-text-muted hover:text-text-main"
-              )}
+
+          <nav className="flex items-center bg-muted/50 p-1 rounded-lg border border-border">
+            <Button 
+              variant={viewMode === 'selection' ? 'secondary' : 'ghost'} 
+              size="sm"
+              onClick={() => setViewMode('selection')}
+              className={cn("h-8 px-4 text-[11px] font-bold gap-2", viewMode === 'selection' ? "bg-card shadow-sm shadow-black/5" : "text-text-muted hover:text-text-main")}
             >
-              <Layout className="w-3.5 h-3.5" />
-              Editor
-            </button>
-            <button 
+              <Video className="w-3.5 h-3.5" />
+              Selection
+            </Button>
+            <Button 
+              variant={viewMode === 'labeling' ? 'secondary' : 'ghost'} 
+              size="sm"
+              onClick={() => setViewMode('labeling')}
+              className={cn("h-8 px-4 text-[11px] font-bold gap-2 text-nowrap", viewMode === 'labeling' ? "bg-card shadow-sm shadow-black/5" : "text-text-muted hover:text-text-main")}
+            >
+              <ImageIcon className="w-3.5 h-3.5" />
+              Labeling
+            </Button>
+            <Separator orientation="vertical" className="h-4 mx-1 bg-border/50" />
+            <Button 
+              variant={viewMode === 'stats' ? 'secondary' : 'ghost'} 
+              size="sm"
               onClick={() => setViewMode('stats')}
-              className={cn(
-                "flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-md transition-all",
-                viewMode === 'stats' ? "bg-card text-accent shadow-sm" : "text-text-muted hover:text-text-main"
-              )}
+              className={cn("h-8 px-4 text-[11px] font-bold gap-2 text-nowrap", viewMode === 'stats' ? "bg-card shadow-sm shadow-black/5" : "text-text-muted hover:text-text-main")}
             >
               <BarChart3 className="w-3.5 h-3.5" />
-              Analysis
-            </button>
-            <button 
+              Statistics
+            </Button>
+            <Button 
+              variant={viewMode === 'export' ? 'secondary' : 'ghost'} 
+              size="sm"
               onClick={() => setViewMode('export')}
-              className={cn(
-                "flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-md transition-all",
-                viewMode === 'export' ? "bg-card text-accent shadow-sm" : "text-text-muted hover:text-text-main"
-              )}
+              className={cn("h-8 px-4 text-[11px] font-bold gap-2 text-nowrap", viewMode === 'export' ? "bg-card shadow-sm shadow-black/5" : "text-text-muted hover:text-text-main")}
             >
               <Archive className="w-3.5 h-3.5" />
               Export
-            </button>
+            </Button>
           </nav>
 
-          {videoUrl && (
-            <nav className="flex items-center gap-1 bg-muted p-1 rounded-lg ml-4">
-              <button 
-                onClick={() => setVideoWorkflowMode('selection')}
-                className={cn(
-                  "flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-md transition-all",
-                  videoWorkflowMode === 'selection' ? "bg-card text-accent shadow-sm" : "text-text-muted hover:text-text-main"
-                )}
-              >
-                <Video className="w-3.5 h-3.5" />
-                Selection
-              </button>
-              <button 
-                onClick={() => setVideoWorkflowMode('labeling')}
-                className={cn(
-                  "flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-md transition-all",
-                  videoWorkflowMode === 'labeling' ? "bg-card text-accent shadow-sm" : "text-text-muted hover:text-text-main"
-                )}
-              >
-                <Edit2 className="w-3.5 h-3.5" />
-                Labeling
-              </button>
-            </nav>
-          )}
-
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setIsAiMode(!isAiMode)}
-              className={cn(
-                "flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-md transition-all border",
-                isAiMode 
-                  ? "bg-accent/10 border-accent/20 text-accent shadow-sm" 
-                  : "bg-muted border-border text-muted-foreground hover:text-foreground"
-              )}
-            >
-              {isAiMode ? <Zap className="w-3.5 h-3.5 fill-current" /> : <ZapOff className="w-3.5 h-3.5" />}
-              AI Mode {isAiMode ? "ON" : "OFF"}
-            </button>
-            {isOcrLoading && (
-              <div className="flex items-center gap-1 text-[10px] font-bold text-amber-600 animate-pulse">
-                <Loader2 className="w-3 h-3 animate-spin" />
-                OCR...
-              </div>
-            )}
-          </div>
+          <form onSubmit={handleUrlSubmit} className="flex gap-2 ml-4">
+            <Input 
+              placeholder="Enter Image or Video URL..." 
+              value={imageUrl}
+              onChange={(e) => setImageUrl(e.target.value)}
+              className="h-8 w-64 text-[11px] border-border focus-visible:ring-accent bg-muted/30"
+            />
+            <Button type="submit" size="sm" className="h-8 px-3 bg-accent hover:bg-accent/90 text-accent-foreground font-bold rounded-md text-[10px]">
+              LOAD
+            </Button>
+          </form>
         </div>
 
-        {viewMode === 'editor' && (
-          <div className="flex-1 max-w-[500px] mx-8">
-            <form onSubmit={handleUrlSubmit} className="flex gap-2">
-              <Input 
-                placeholder="Enter Image URL..." 
-                value={imageUrl}
-                onChange={(e) => setImageUrl(e.target.value)}
-                className="h-9 text-sm border-border focus-visible:ring-accent"
-              />
-              <Button type="submit" size="sm" className="h-9 px-4 bg-accent hover:bg-accent/90 text-accent-foreground font-semibold rounded-md">
-                Load Image
-              </Button>
-            </form>
-          </div>
-        )}
-
         <div className="flex items-center gap-3">
-          {viewMode === 'editor' && activeImageUrl && (
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => setIsFullscreen(true)}
-              className="h-9 px-3 border-border text-text-muted hover:text-text-main font-semibold rounded-md"
-              title="Full Page Preview"
+          <div className="flex items-center gap-2 px-3 py-1 bg-muted rounded-full border border-border">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setIsAiMode(!isAiMode)}
+              className={cn(
+                "h-6 w-6 rounded-full transition-all",
+                isAiMode ? "text-accent" : "text-text-muted hover:text-text-main"
+              )}
+              title={isAiMode ? "AI Mode On" : "AI Mode Off"}
             >
-              <Maximize2 className="w-4 h-4" />
+              <Zap className={cn("w-3.5 h-3.5", isAiMode && "fill-current")} />
             </Button>
-          )}
-          {viewMode === 'editor' ? (
+            {isOcrLoading && (
+               <Loader2 className="w-3 h-3 animate-spin text-accent" />
+            )}
+            <Separator orientation="vertical" className="h-3 bg-border" />
             <Button 
               variant="ghost" 
-              size="sm" 
-              onClick={() => setLabels([])}
-              disabled={labels.length === 0}
-              className="h-9 px-4 bg-border hover:bg-border/80 text-text-main font-semibold rounded-md"
+              size="icon" 
+              onClick={() => setIsDarkMode(!isDarkMode)}
+              className="text-text-muted hover:text-text-main h-6 w-6 rounded-full"
             >
-              Clear All
+              {isDarkMode ? <Circle className="w-3 h-3 fill-yellow-500 text-yellow-500" /> : <Circle className="w-3 h-3" />}
             </Button>
-          ) : (
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => setViewMode('editor')}
-              className="h-9 px-4 border-border text-text-main font-semibold rounded-md flex items-center gap-2"
-            >
-              <ChevronLeft className="w-4 h-4" />
-              Back to Editor
-            </Button>
-          )}
-          <div className="w-8 h-8 rounded-full bg-border"></div>
+          </div>
+          
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={loadDemoProject}
+            className="h-8 px-3 border-blue-500/30 text-blue-500 hover:bg-blue-500/5 font-bold rounded-md text-[10px] gap-2"
+          >
+            <Sparkles className="w-3 h-3" />
+            DEMO
+          </Button>
         </div>
       </header>
 
       <main className="flex-1 flex overflow-hidden">
         <AnimatePresence mode="wait">
-          {viewMode === 'editor' ? (
+          {viewMode === 'selection' && (
             <motion.div 
-              key="editor"
+              key="selection"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 20 }}
+              className="flex-1 flex flex-col p-8 overflow-y-auto h-full w-full bg-background"
+            >
+              <div className="max-w-5xl mx-auto w-full space-y-8">
+                <div className="flex flex-col gap-2">
+                  <h2 className="text-3xl font-black text-text-main tracking-tight">Video Frame Extraction</h2>
+                  <p className="text-text-muted font-medium">Extract keyframes from your video source to begin labeling.</p>
+                </div>
+
+                <div className="bg-card rounded-2xl overflow-hidden shadow-2xl aspect-video relative group border-4 border-border">
+                  <video 
+                    ref={videoRef}
+                    src={videoUrl}
+                    controls
+                    className="w-full h-full"
+                    crossOrigin="anonymous"
+                  />
+                  {isRecollecting && (
+                    <div className="absolute inset-0 bg-background/80 flex flex-col items-center justify-center gap-4 z-50">
+                      <Loader2 className="w-12 h-12 text-accent animate-spin" />
+                      <div className="text-xl font-bold text-text-main animate-pulse">
+                        Recollecting frames from URL...
+                      </div>
+                      <p className="text-sm text-text-muted">
+                        Seeking precise timestamps for the demo project
+                      </p>
+                    </div>
+                  )}
+                  <div className="absolute top-6 right-6 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Button 
+                      onClick={captureFrame}
+                      size="lg"
+                      className="bg-accent hover:bg-accent/90 text-accent-foreground font-bold shadow-2xl scale-110"
+                    >
+                      <Plus className="w-5 h-5 mr-2" />
+                      Capture Keyframe
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between px-2">
+                    <h3 className="text-xl font-black text-text-main flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center">
+                        <Bookmark className="w-5 h-5 text-accent" />
+                      </div>
+                      Captured Keyframes
+                    </h3>
+                    <Badge variant="secondary" className="bg-accent text-accent-foreground border-none px-3 py-1 rounded-full font-bold">
+                      {videoTasks.length} Frames
+                    </Badge>
+                  </div>
+                  
+                  <ScrollArea className="w-full whitespace-nowrap rounded-2xl border border-border bg-card p-6 shadow-sleek">
+                    <div className="flex gap-6">
+                      {videoTasks.map((task) => (
+                        <div 
+                          key={task.id}
+                          onClick={() => {
+                            selectVideoTask(task);
+                            setViewMode('labeling');
+                          }}
+                          className={cn(
+                            "relative w-64 aspect-video rounded-xl overflow-hidden cursor-pointer border-4 transition-all hover:scale-[1.05] active:scale-[0.95] group/item shadow-sm",
+                            activeTaskId === task.id ? "border-accent shadow-accent/20" : "border-transparent hover:border-accent/30"
+                          )}
+                        >
+                          <img src={task.thumbnail} className="w-full h-full object-cover" alt="Frame" />
+                          <div className="absolute inset-0 bg-black/10 group-hover/item:bg-transparent transition-colors" />
+                          <div className="absolute bottom-3 right-3 bg-black/70 text-white text-[11px] px-2 py-1 rounded-md font-bold font-mono backdrop-blur-md">
+                            {task.timestamp.toFixed(1)}s
+                          </div>
+                          <Button 
+                            variant="destructive" 
+                            size="icon" 
+                            className="absolute top-3 right-3 h-8 w-8 opacity-0 group-hover/item:opacity-100 transition-opacity shadow-lg"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deleteVideoTask(task.id);
+                            }}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      ))}
+                      {videoTasks.length === 0 && (
+                        <div className="w-full py-16 flex flex-col items-center justify-center text-text-muted border-4 border-dashed border-border rounded-2xl bg-muted/30">
+                          <Video className="w-12 h-12 mb-4 opacity-10" />
+                          <p className="text-lg font-bold text-muted-foreground">No keyframes captured yet</p>
+                          <p className="text-sm text-muted-foreground">Use the video player above to select frames for labeling</p>
+                        </div>
+                      )}
+                    </div>
+                    <ScrollBar orientation="horizontal" />
+                  </ScrollArea>
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {viewMode === 'labeling' && (
+            <motion.div 
+              key="labeling"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
@@ -1145,7 +1213,7 @@ export default function App() {
                                       key={task.id}
                                       onClick={() => {
                                         selectVideoTask(task);
-                                        setVideoWorkflowMode('labeling');
+                                        setViewMode('labeling');
                                       }}
                                       className={cn(
                                         "flex items-center gap-3 p-2 rounded-md border transition-all cursor-pointer group",
@@ -1389,294 +1457,198 @@ export default function App() {
 
               {/* Canvas Area */}
               <div className="flex-1 bg-canvas-bg relative overflow-auto flex items-center justify-center p-6">
-          {videoUrl && videoWorkflowMode === 'selection' ? (
-             <div className="flex-1 flex flex-col p-8 overflow-y-auto h-full w-full">
-                <div className="max-w-5xl mx-auto w-full space-y-8">
-                  <div className="bg-card rounded-2xl overflow-hidden shadow-2xl aspect-video relative group border-4 border-border">
-                    <video 
-                      ref={videoRef}
-                      src={videoUrl}
-                      controls
-                      className="w-full h-full"
-                      crossOrigin="anonymous"
-                    />
-                    {isRecollecting && (
-                      <div className="absolute inset-0 bg-background/80 flex flex-col items-center justify-center gap-4 z-50">
-                        <Loader2 className="w-12 h-12 text-accent animate-spin" />
-                        <div className="text-xl font-bold text-text-main animate-pulse">
-                          Recollecting frames from URL...
-                        </div>
-                        <p className="text-sm text-text-muted">
-                          Seeking precise timestamps for the demo project
-                        </p>
-                      </div>
-                    )}
-                    <div className="absolute top-6 right-6 opacity-0 group-hover:opacity-100 transition-opacity">
-                       <Button 
-                        onClick={captureFrame}
-                        size="lg"
-                        className="bg-accent hover:bg-accent/90 text-accent-foreground font-bold shadow-2xl scale-110"
-                      >
-                        <Plus className="w-5 h-5 mr-2" />
-                        Capture Keyframe
-                      </Button>
-                    </div>
-                  </div>
-
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between px-2">
-                      <h3 className="text-xl font-black text-text-main flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center">
-                          <Bookmark className="w-5 h-5 text-accent" />
-                        </div>
-                        Captured Keyframes
-                      </h3>
-                      <Badge variant="secondary" className="bg-accent text-accent-foreground border-none px-3 py-1 rounded-full font-bold">
-                        {videoTasks.length} Frames
-                      </Badge>
-                    </div>
-                    
-                    <ScrollArea className="w-full whitespace-nowrap rounded-2xl border border-border bg-card p-6 shadow-sleek">
-                      <div className="flex gap-6">
-                        {videoTasks.map((task) => (
-                          <div 
-                            key={task.id}
-                            onClick={() => {
-                              selectVideoTask(task);
-                              setVideoWorkflowMode('labeling');
-                            }}
-                            className={cn(
-                              "relative w-64 aspect-video rounded-xl overflow-hidden cursor-pointer border-4 transition-all hover:scale-[1.05] active:scale-[0.95] group/item shadow-sm",
-                              activeTaskId === task.id ? "border-accent shadow-accent/20" : "border-transparent hover:border-accent/30"
-                            )}
-                          >
-                            <img src={task.thumbnail} className="w-full h-full object-cover" alt="Frame" />
-                            <div className="absolute inset-0 bg-black/10 group-hover/item:bg-transparent transition-colors" />
-                            <div className="absolute bottom-3 right-3 bg-black/70 text-white text-[11px] px-2 py-1 rounded-md font-bold font-mono backdrop-blur-md">
-                              {task.timestamp.toFixed(1)}s
-                            </div>
-                            <Button 
-                              variant="destructive" 
-                              size="icon" 
-                              className="absolute top-3 right-3 h-8 w-8 opacity-0 group-hover/item:opacity-100 transition-opacity shadow-lg"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                deleteVideoTask(task.id);
-                              }}
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        ))}
-                        {videoTasks.length === 0 && (
-                          <div className="w-full py-16 flex flex-col items-center justify-center text-text-muted border-4 border-dashed border-border rounded-2xl bg-muted/30">
-                            <Video className="w-12 h-12 mb-4 opacity-10" />
-                            <p className="text-lg font-bold text-muted-foreground">No keyframes captured yet</p>
-                            <p className="text-sm text-muted-foreground">Use the video player above to select frames for labeling</p>
-                          </div>
-                        )}
-                      </div>
-                      <ScrollBar orientation="horizontal" />
-                    </ScrollArea>
-                  </div>
-                </div>
-              </div>
-          ) : (
-            <>
-              {activeImageUrl && (
-                <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-1 bg-card/90 backdrop-blur-sm border border-border p-1.5 rounded-xl shadow-sleek">
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="h-8 w-8 text-text-muted hover:text-text-main"
-                    onClick={handleZoomOut}
-                    title="Zoom Out"
-                  >
-                    <ZoomOut className="w-4 h-4" />
-                  </Button>
-                  <div className="px-2 text-[11px] font-bold text-text-main min-w-[45px] text-center">
-                    {Math.round(zoom * 100)}%
-                  </div>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="h-8 w-8 text-text-muted hover:text-text-main"
-                    onClick={handleZoomIn}
-                    title="Zoom In"
-                  >
-                    <ZoomIn className="w-4 h-4" />
-                  </Button>
-                  <Separator orientation="vertical" className="h-4 mx-1" />
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="h-8 w-8 text-text-muted hover:text-text-main"
-                    onClick={resetZoom}
-                    title="Fit to Page (ESC)"
-                  >
-                    <RotateCcw className="w-4 h-4" />
-                  </Button>
-                </div>
-              )}
-
-              {!activeImageUrl ? (
-                <div className="text-center space-y-4 max-w-md">
-                  <div className="w-20 h-20 bg-card rounded-3xl shadow-sleek flex items-center justify-center mx-auto text-muted-foreground">
-                    <ImageIcon className="w-10 h-10" />
-                  </div>
-                  <div className="space-y-2">
-                    <h3 className="text-xl font-bold text-text-main">Ready to start?</h3>
-                    <p className="text-text-muted text-sm">
-                      Enter an image URL in the header to begin labeling.
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <div 
-                  className="relative shadow-sleek bg-card rounded-sm cursor-crosshair transition-all duration-200 ease-out origin-center"
-                  style={{ 
-                    width: imageSize.width ? `${zoom * 100}%` : 'auto',
-                    maxWidth: zoom === 1 ? '100%' : 'none',
-                    maxHeight: zoom === 1 ? '100%' : 'none',
-                    aspectRatio: imageSize.width ? `${imageSize.width}/${imageSize.height}` : 'auto',
-                    transform: zoom > 1 ? `scale(1)` : `scale(1)` // We use width/height for zoom to enable scrolling
-                  }}
-                >
-                  <div 
-                    ref={containerRef}
-                    className="relative w-full h-full select-none"
-                    onMouseDown={handleMouseDown}
-                    onMouseMove={handleMouseMove}
-                    onMouseUp={handleMouseUp}
-                    onMouseLeave={handleMouseUp}
-                    onDoubleClick={handleDoubleClick}
-                  >
-                    <img 
-                      ref={imageRef}
-                      src={activeImageUrl} 
-                      alt="Labeling target" 
-                      className="block w-full h-auto pointer-events-none"
-                      onLoad={onImageLoad}
-                      referrerPolicy="no-referrer"
-                    />
-                    
-                    {/* SVG Overlay for Drawing */}
-                    <svg 
-                      className="absolute inset-0 w-full h-full pointer-events-none"
-                      viewBox="0 0 100 100"
-                      preserveAspectRatio="none"
+                {activeImageUrl && (
+                  <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-1 bg-card/90 backdrop-blur-sm border border-border p-1.5 rounded-xl shadow-sleek">
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-8 w-8 text-text-muted hover:text-text-main"
+                      onClick={handleZoomOut}
+                      title="Zoom Out"
                     >
-                      {/* Existing Labels */}
-                      {labels.map((label) => (
-                        <g key={label.id}>
-                          <rect 
-                            x={label.x}
-                            y={label.y}
-                            width={label.width}
-                            height={label.height}
-                            fill="none"
-                            stroke={label.verified ? "#10b981" : "var(--accent)"}
-                            strokeWidth={editingLabelId === label.id ? "0.6" : "0.3"}
-                            className={cn(
-                              "transition-all duration-200",
-                              editingLabelId === label.id && "animate-breathe-glow"
-                            )}
-                          />
-                          {label.text && (
-                            <foreignObject
-                              x={label.x}
-                              y={label.y - 6 > 0 ? label.y - 6 : label.y}
-                              width="100"
-                              height="10"
-                            >
-                              <div className={cn(
-                                "text-accent-foreground text-[2.5px] px-1.5 py-0.5 rounded-t-sm inline-block whitespace-nowrap font-bold uppercase tracking-tighter",
-                                label.verified ? "bg-green-500" : "bg-accent"
-                              )}>
-                                {label.text}
-                              </div>
-                            </foreignObject>
-                          )}
-                        </g>
-                      ))}
+                      <ZoomOut className="w-4 h-4" />
+                    </Button>
+                    <div className="px-2 text-[11px] font-bold text-text-main min-w-[45px] text-center">
+                      {Math.round(zoom * 100)}%
+                    </div>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-8 w-8 text-text-muted hover:text-text-main"
+                      onClick={handleZoomIn}
+                      title="Zoom In"
+                    >
+                      <ZoomIn className="w-4 h-4" />
+                    </Button>
+                    <Separator orientation="vertical" className="h-4 mx-1" />
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-8 w-8 text-text-muted hover:text-text-main"
+                      onClick={resetZoom}
+                      title="Fit to Page (ESC)"
+                    >
+                      <RotateCcw className="w-4 h-4" />
+                    </Button>
+                  </div>
+                )}
 
-                      {/* Current Drawing Box */}
-                      {currentBox && (
-                        <rect 
-                          x={currentBox.x}
-                          y={currentBox.y}
-                          width={currentBox.width}
-                          height={currentBox.height}
-                          fill="rgba(59, 130, 246, 0.1)"
-                          stroke="#3b82f6"
-                          strokeWidth="0.4"
-                        />
-                      )}
-                    </svg>
-
-                    {/* On-screen input for active label */}
-                    <AnimatePresence>
-                      {editingLabelId && labels.find(l => l.id === editingLabelId) && (
-                        <motion.div
-                          initial={{ opacity: 0, scale: 0.95 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          exit={{ opacity: 0, scale: 0.95 }}
-                          className="absolute z-10 pointer-events-auto"
-                          style={{
-                            left: `${labels.find(l => l.id === editingLabelId)!.x}%`,
-                            top: `${labels.find(l => l.id === editingLabelId)!.y + labels.find(l => l.id === editingLabelId)!.height}%`,
-                            marginTop: '8px',
-                            width: '380px'
-                          }}
-                        >
-                          <div className="bg-white rounded-lg shadow-xl border border-accent p-2 flex gap-2">
-                            <Input 
-                              autoFocus
-                              value={labels.find(l => l.id === editingLabelId)!.text}
-                              onChange={(e) => updateLabelText(editingLabelId, e.target.value)}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') setEditingLabelId(null);
-                              }}
-                              placeholder="Enter text..."
-                              className="h-8 text-xs border-border focus-visible:ring-accent bg-white text-black flex-1"
-                            />
-                            <Button 
-                              size="icon" 
-                              variant="ghost" 
-                              className={cn(
-                                "h-8 w-8 shrink-0",
-                                labels.find(l => l.id === editingLabelId)!.verified ? "text-green-500 hover:text-green-600" : "text-text-muted hover:text-green-500"
-                              )}
-                              onClick={() => toggleVerifyLabel(editingLabelId)}
-                              title={labels.find(l => l.id === editingLabelId)!.verified ? "Unverify" : "Verify"}
-                            >
-                              {labels.find(l => l.id === editingLabelId)!.verified ? <CheckCircle2 className="w-4 h-4" /> : <Circle className="w-4 h-4" />}
-                            </Button>
-                            <Button 
-                              size="icon" 
-                              variant="ghost" 
-                              className="h-8 w-8 shrink-0 hover:bg-muted"
-                              onClick={() => setEditingLabelId(null)}
-                            >
-                              <X className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-
-                    {/* Resolution Badge */}
-                    <div className="absolute bottom-3 right-3 bg-black/60 text-white px-2 py-1 rounded text-[10px] font-bold">
-                      {imageSize.width} x {imageSize.height} px
+                {!activeImageUrl ? (
+                  <div className="text-center space-y-4 max-w-md">
+                    <div className="w-20 h-20 bg-card rounded-3xl shadow-sleek flex items-center justify-center mx-auto text-muted-foreground">
+                      <ImageIcon className="w-10 h-10" />
+                    </div>
+                    <div className="space-y-2">
+                      <h3 className="text-xl font-bold text-text-main">Ready to start?</h3>
+                      <p className="text-text-muted text-sm">
+                        Enter an image URL in the header or select a frame from the Selection view to begin labeling.
+                      </p>
                     </div>
                   </div>
-                </div>
-              )}
-            </>
-          )}
-        </div>
+                ) : (
+                  <div 
+                    className="relative shadow-sleek bg-card rounded-sm cursor-crosshair transition-all duration-200 ease-out origin-center"
+                    style={{ 
+                      width: imageSize.width ? `${zoom * 100}%` : 'auto',
+                      maxWidth: zoom === 1 ? '100%' : 'none',
+                      maxHeight: zoom === 1 ? '100%' : 'none',
+                      aspectRatio: imageSize.width ? `${imageSize.width}/${imageSize.height}` : 'auto',
+                      transform: zoom > 1 ? `scale(1)` : `scale(1)` 
+                    }}
+                  >
+                    <div 
+                      ref={containerRef}
+                      className="relative w-full h-full select-none"
+                      onMouseDown={handleMouseDown}
+                      onMouseMove={handleMouseMove}
+                      onMouseUp={handleMouseUp}
+                      onMouseLeave={handleMouseUp}
+                      onDoubleClick={handleDoubleClick}
+                    >
+                      <img 
+                        ref={imageRef}
+                        src={activeImageUrl} 
+                        alt="Labeling target" 
+                        className="block w-full h-auto pointer-events-none"
+                        onLoad={onImageLoad}
+                        referrerPolicy="no-referrer"
+                      />
+                      
+                      {/* SVG Overlay for Drawing */}
+                      <svg 
+                        className="absolute inset-0 w-full h-full pointer-events-none"
+                        viewBox="0 0 100 100"
+                        preserveAspectRatio="none"
+                      >
+                        {/* Existing Labels */}
+                        {labels.map((label) => (
+                          <g key={label.id}>
+                            <rect 
+                              x={label.x}
+                              y={label.y}
+                              width={label.width}
+                              height={label.height}
+                              fill="none"
+                              stroke={label.verified ? "#10b981" : "var(--accent)"}
+                              strokeWidth={editingLabelId === label.id ? "0.6" : "0.3"}
+                              className={cn(
+                                "transition-all duration-200",
+                                editingLabelId === label.id && "animate-breathe-glow"
+                              )}
+                            />
+                            {label.text && (
+                              <foreignObject
+                                x={label.x}
+                                y={label.y - 6 > 0 ? label.y - 6 : label.y}
+                                width="100"
+                                height="10"
+                              >
+                                <div className={cn(
+                                  "text-accent-foreground text-[2.5px] px-1.5 py-0.5 rounded-t-sm inline-block whitespace-nowrap font-bold uppercase tracking-tighter",
+                                  label.verified ? "bg-green-500" : "bg-accent"
+                                )}>
+                                  {label.text}
+                                </div>
+                              </foreignObject>
+                            )}
+                          </g>
+                        ))}
 
-        {/* Right Sidebar (Annotations) */}
+                        {/* Current Drawing Box */}
+                        {currentBox && (
+                          <rect 
+                            x={currentBox.x}
+                            y={currentBox.y}
+                            width={currentBox.width}
+                            height={currentBox.height}
+                            fill="rgba(59, 130, 246, 0.1)"
+                            stroke="#3b82f6"
+                            strokeWidth="0.4"
+                          />
+                        )}
+                      </svg>
+
+                      {/* On-screen input for active label */}
+                      <AnimatePresence>
+                        {editingLabelId && labels.find(l => l.id === editingLabelId) && (
+                          <motion.div
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.95 }}
+                            className="absolute z-10 pointer-events-auto"
+                            style={{
+                              left: `${labels.find(l => l.id === editingLabelId)!.x}%`,
+                              top: `${labels.find(l => l.id === editingLabelId)!.y + labels.find(l => l.id === editingLabelId)!.height}%`,
+                              marginTop: '8px',
+                              width: '380px'
+                            }}
+                          >
+                            <div className="bg-white rounded-lg shadow-xl border border-accent p-2 flex gap-2">
+                              <Input 
+                                autoFocus
+                                value={labels.find(l => l.id === editingLabelId)!.text}
+                                onChange={(e) => updateLabelText(editingLabelId, e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') setEditingLabelId(null);
+                                }}
+                                placeholder="Enter text..."
+                                className="h-8 text-xs border-border focus-visible:ring-accent bg-white text-black flex-1"
+                              />
+                              <Button 
+                                size="icon" 
+                                variant="ghost" 
+                                className={cn(
+                                  "h-8 w-8 shrink-0",
+                                  labels.find(l => l.id === editingLabelId)!.verified ? "text-green-500 hover:text-green-600" : "text-text-muted hover:text-green-500"
+                                )}
+                                onClick={() => toggleVerifyLabel(editingLabelId)}
+                                title={labels.find(l => l.id === editingLabelId)!.verified ? "Unverify" : "Verify"}
+                              >
+                                {labels.find(l => l.id === editingLabelId)!.verified ? <CheckCircle2 className="w-4 h-4" /> : <Circle className="w-4 h-4" />}
+                              </Button>
+                              <Button 
+                                size="icon" 
+                                variant="ghost" 
+                                className="h-8 w-8 shrink-0 hover:bg-muted"
+                                onClick={() => setEditingLabelId(null)}
+                              >
+                                <X className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+
+                      {/* Resolution Badge */}
+                      <div className="absolute bottom-3 right-3 bg-black/60 text-white px-2 py-1 rounded text-[10px] font-bold">
+                        {imageSize.width} x {imageSize.height} px
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Right Sidebar (Annotations) */}
         <aside className="w-[300px] border-l border-border bg-sidebar flex flex-col shrink-0">
           <div className="p-5 border-b border-border bg-muted/20">
             <h2 className="text-[12px] font-bold text-text-muted uppercase tracking-wider">
@@ -1771,8 +1743,10 @@ export default function App() {
             </div>
           </ScrollArea>
         </aside>
-      </motion.div>
-    ) : (
+          </motion.div>
+          )}
+
+          {viewMode === 'stats' && (
             <motion.div 
               key="stats"
               initial={{ opacity: 0, y: 20 }}
